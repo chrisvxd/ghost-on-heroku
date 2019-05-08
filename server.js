@@ -1,5 +1,7 @@
 var ghost = require('ghost');
 var cluster = require('cluster');
+var express = require('express');
+var urlService = require('./node_modules/ghost/core/server/services/url');
 
 // Heroku sets `WEB_CONCURRENCY` to the number of available processor cores.
 var WORKERS = process.env.WEB_CONCURRENCY || 1;
@@ -14,8 +16,16 @@ if (cluster.isMaster) {
     cluster.fork();
   }
 } else {
+  var parentApp = express();
+
   // Run Ghost in each worker / processor core.
-  ghost().then(function (ghostServer) {
-    ghostServer.start();
-  });
+  ghost()
+    .then(function (ghostServer) {
+      ////////////////////////////////////////////////////////////////
+      // this is what you need to get subdirectories working properly!
+      // e.g. https://www.website.com/blog
+      parentApp.use(urlService.utils.getSubdir(), ghostServer.rootApp);
+      ghostServer.start(parentApp);
+      ////////////////////////////////////////////////////////////////
+    });
 }
